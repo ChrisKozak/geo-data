@@ -1,0 +1,45 @@
+Hello, this project doesn't do much.  It's just here to simplify getting setup with MongoDB and PostGIS.  I'm playing with both of these, trying to determine which suits my Geo-needs better and thought that others could benefit from my learnings.
+
+	-Chris
+
+(You need to have VirtualBox installed on your machine. That should be the only prerequisite.)
+
+From the project directory, type "vagrant up"
+(Wait at least 10 min, longer if it's the first build.  Vagrant is downloading an Ubuntu image and all of the dependencies defined in the puppet manifest)
+When it finishes, type "vagrant ssh"
+(You are now in the virtual machine)
+Type "cd /vagrant"
+(You are now in the shared project directory)
+
+
+How to query points within shapes in Mongo
+First, type mongo.
+Then try the following:
+ db.points.insert({ pos : [10,10] })
+ db.points.insert({ pos : [1,1] })
+ db.points.ensureIndex({ pos : "2d" })
+ box = [[0,0],[2,2]]
+ db.points.find({"pos": {"$within":{"$box": box}}})
+ polygon = [[0,0],[0,1],[0,2],[2,2],[2,0]]
+ db.points.find({"pos": {"$within":{"$polygon": polygon}}})
+
+This converts a .shp file to GeoJSON (may be useful for working with MongoDB)
+ogr2ogr -f "GeoJSON" census_tracts.json tl_2010_01_tract10.shp
+
+
+PostGIS
+Verify that PostGIS successfully installed 
+(The restart is annoying.  Will fix later)
+ sudo /etc/init.d/postgresql-8.4 restart
+ psql -Uopengeo -p5432 -c"SELECT postgis_full_version();" medford
+(You should see stuff that looks like Postgres is running and that it knows something about medford)
+
+Create a GEO database to receive converted Shapefile
+ createdb -Uopengeo -T template_postgis census
+
+Convert shapefile (directory) into PostGIS SQL and insert into PostGIS
+ shp2pgsql sample-shapefiles/alabama/tl_2010_01_tract10 census | psql -Uopengeo -d census
+
+Example Spatial Query
+select ST_Area(ST_GeographyFromText(ST_AsText(the_geom)), true) as area_of_census_tract, gid, namelsad10, aland10, awater10, intptlat10, intptlon10 from census limit 1;
+
